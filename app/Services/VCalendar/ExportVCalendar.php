@@ -5,6 +5,7 @@ namespace App\Services\VCalendar;
 use Illuminate\Support\Str;
 use App\Services\BaseService;
 use Sabre\VObject\Component\VEvent;
+use Sabre\VObject\Component\VAlarm;
 use App\Models\Instance\SpecialDate;
 use Illuminate\Support\Facades\Auth;
 use Sabre\VObject\Component\VCalendar;
@@ -58,8 +59,10 @@ class ExportVCalendar extends BaseService
         $vevent = $vcal->create('VEVENT');
         $vcal->add($vevent);
 
+        $valarm = $vcal->create('VALARM');
+        
         $this->exportTimezone($vcal);
-        $this->exportBirthday($date, $vevent);
+        $this->exportBirthday($date, $vevent, $valarm);
 
         return $vcal;
     }
@@ -80,7 +83,7 @@ class ExportVCalendar extends BaseService
      * @param  VEvent  $vevent
      * @return void
      */
-    private function exportBirthday(SpecialDate $date, VEvent $vevent)
+    private function exportBirthday(SpecialDate $date, VEvent $vevent, VAlarm $valarm)
     {
         $contact = $date->contact;
 
@@ -104,5 +107,14 @@ class ExportVCalendar extends BaseService
                 'url' => $contact->getLink(),
             ]);
         }
+        
+        $valarm->TRIGGER = 'PT9H'; // 9 hours after event start (all day events start at midnight)
+        $valarm->TRIGGER['VALUE'] = 'DURATION';
+        $valarm->TRIGGER['RELATED'] = 'START';
+        $valarm->ACTION = 'DISPLAY';
+        $valarm->SUMMARY = $vevent->SUMMARY;
+        $valarm->DESCRIPTION = $vevent->DESCRIPTION;
+
+        $vevent->VALARM = $valarm;
     }
 }
